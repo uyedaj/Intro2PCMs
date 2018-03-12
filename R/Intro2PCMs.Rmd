@@ -1,0 +1,288 @@
+---
+title: "Introduction to Phylogenetics in R"
+output:
+  html_document:
+    df_print: paged
+---
+
+# An introduction to phylogenetic comparative methods in R
+This tutorial is intended to get you familiar with the R environment for conducting
+phylogenetic comparative analyses.
+
+## I. Preparing the R environment
+```{r echo=FALSE}
+options(max.print=50)
+```
+
+### Installing packages
+To install a package directly from CRAN, use:
+```{r eval=FALSE}
+install.packages("geiger")
+```
+
+Load the package using 'library'. These days, many packages may not be on CRAN, but instead hosted on github, bitbucket etc.
+To install these packages, it's useful to use the `devtools` package.
+```{r}
+library(geiger)
+library(devtools)
+library(treeplyr)
+```
+
+For phylogenetic comparative methods, there are a number of packages available. One place
+to find them all is the 'Phylogenetics Task View' run by Brian O'meara: (http://cran.r-project.org/web/views/Phylogenetics.html)
+All of these packages can be installed at once using the following lines (however, please note that
+this process can take a considerable amount of time)
+```{r eval=FALSE}
+install.packages("ctv")
+install.views("Phylogenetics")
+```
+
+### Directory management
+R looks for files in the 'working directory'. 
+```{r}
+getwd()
+```
+
+```{r eval=FALSE}
+dir.create("~/repos/SSBphylogenetics")
+dir.create("~/repos/SSBphylogenetics/R")
+dir.create("~/repos/SSBphylogenetics/data")
+dir.create("~/repos/SSBphylogenetics/output")
+```
+
+```{r eval=TRUE}
+setwd("~/repos/SSBphylogenetics/R/")
+```
+
+Save this script into the folder './R' and place your data files into the directory './data'
+Now we are ready to read in data and tree files.
+
+### II. Reading in a tree & tree data structures
+There are a number of functions to read in phylogenetic tree data into R. We are going
+to use as our example tree phylogeny of Muroid rodents (Schenk, Rowe & Steppan, 2013; Systematic Biology).
+The tree can be downloaded from my github site, or it be accessed directly from treebase (submission 12303).
+```{r}
+tree <- read.tree("../data/schenk.tre")
+tree
+```
+
+We can plot the tree:
+```{r}
+plot(tree)
+plot(tree, type="fan", cex=0.25)
+```
+
+You may notice that the help file for `plot` is not very helpful for options for phylogenies: 
+```{r}
+?plot
+```
+
+This is because `plot` is a "method" that behaves differently on objects of different classes. 
+```{r}
+plot
+methods(plot)
+class(tree)
+?plot.phylo
+```
+
+How is a tree stored? How can it be manipulated and modified? 
+A tree object in R is a data structure called a "list", and given a species class, called a "phylo" object.
+It will be worth your time getting familiar with [data structures in R](http://adv-r.had.co.nz/Data-structures.html).
+
+`str` is a useful commands for determining what is in an R object:
+```{r}
+str(tree)
+```
+
+Each element of the list can be accessed by multiple means:
+```{r}
+tree['tip.label']
+tree[['tip.label']]
+tree[[3]]
+tree$tip.label
+```
+
+The structure of the tree is stored in the edge matrix:
+```{r}
+tree$edge
+```
+
+And branch lengths are stored in the list element `edge.length`
+```{r}
+tree$edge.length
+```
+
+Tips can be dropped with the function `drop.tip`:
+```{r}
+#tree before:
+tree
+#tree after dropping two species:
+drop.tip(tree, c("Eliomys_quercinus", "Sicista_tianshanica"))
+```
+
+We can get a distance matrix from the tree as follows:
+```{r}
+dist <- cophenetic(tree)
+dist[1:5,1:5]
+```
+
+### III. Matching a tree with a dataset
+
+```{r}
+pantheria <- read.table("http://www.esapubs.org/archive/ecol/E090/184/PanTHERIA_1-0_WR05_Aug2008.txt",header=TRUE,sep="\t")
+rownames(pantheria) <- gsub(" ", "_", pantheria$MSW05_Binomial)
+head(pantheria)
+```
+
+```{r}
+td <- make.treedata(tree, pantheria)
+td
+```
+
+```{r}
+attributes(td)$dropped
+```
+
+```{r}
+colnames(td$dat)
+```
+
+```{r}
+td2 <- mutate(td, lnMass = log(X5.1_AdultBodyMass_g),lnBMR = log(X18.1_BasalMetRate_mLO2hr), desert=ifelse(X28.1_Precip_Mean_mm < 21, 1, 0)) %>% filter(., !is.na(lnMass), !is.na(lnBMR)) %>% select(., lnMass, lnBMR, desert)
+td2
+```
+
+```{r}
+plot(td2[['lnMass']], td2[['lnBMR']], pch=21, bg=td2[['desert']]+2)
+```
+
+## IV. Visualization
+Ape plotting:
+```{r}
+tree <- td2$phy
+dat <- td2$dat
+
+plot(tree)
+plot(tree, type="fan", cex=0.5)
+plot(tree, type="fan", show.tip.label=FALSE)
+tiplabels(pch=21, bg=dat$desert+1)
+nodelabels(cex=0.75,bg="white" )
+```
+
+Plot a traitgram to visualize a continuous trait:
+```{r}
+require(phytools)
+phenogram(tree, setNames(dat[['lnMass']], tree$tip.label), spread.labels=FALSE)
+```
+
+Another useful tool is to plot the contrasts vs. the node height of the tree:
+```{r}
+picMass <- pic(dat$lnMass, tree)
+plot(tree, cex=0.5)
+nodelabels(pch=21, bg=topo.colors(100)[round((picMass-min(picMass))/diff(range(picMass))*100,0)])
+
+times <- branching.times(tree)
+plot(times, picMass, xlim=c(0, max(times)))
+```
+
+Phytools' scattergram can be useful for exploring correlations between traits across the phylogeny:
+```{r}
+
+fancyDat <- as.matrix(dat[,1:3])
+rownames(fancyDat) <- tree$tip.label
+fancyTree(tree, type="scattergram", X=fancyDat, fsize=0.3)
+
+```
+
+## V. Simple analyses of traits
+
+### Discrete trait models
+We generally use "continuous-time Markov models" to model discrete traits on the phylogeny. These models are
+used to model transitions between discrete character states, whether they are the presence/absence of phenotypic trait
+or nucleotide a specific site. We can fit such a model to a trait and a phylogeny using the `fitDiscrete` function in
+in `geiger`.
+
+```{r}
+tdDiscrete <- filter(td2, !is.na(desert))
+trait <- setNames(tdDiscrete$dat$desert, tdDiscrete$phy$tip.label)+1
+mER <- fitDiscrete(tdDiscrete$phy, trait, model="ER")
+mARD <- fitDiscrete(tdDiscrete$phy, trait, model="ARD")
+mER
+mARD
+```
+
+### Continuous trait models
+For continuous traits, we generally use "Gaussian models" that result in multivariate normal distributions.
+The most basic and familiar of these is Brownian motion. We can fit a Brownian motion model using the function 
+`fitContinuous` from the `geiger` package. 
+```{r}
+trait <- setNames(dat$lnMass, tree$tip.label)
+mBM <- fitContinuous(tree, trait, model="BM")
+mBM
+```
+
+An more general model than the Brownian motion model is the Ornstein-Uhlenbeck model, which has one additional 
+parameter describing the central tendency of traits to evolve toward an intermediate optimum (think of a rubber 
+band pulling back towards an optimum trait value).
+```{r}
+mOU <- fitContinuous(tree, trait, model="OU")
+mBM
+```
+
+Another model is one in which the rate of evolution is initially rapid, but slows over time. This is called
+the early-burst model (EB). Let's fit all models simultaneously using first 1) a loop and then 2) the lapply function.
+This time, we'll use the BMR data instead of the mass data:
+```{r}
+trait <- setNames(dat$lnBMR, tree$tip.label)
+models <- c("BM", "OU", "EB")
+mFits <- list()
+for(i in 1:length(models)){
+  mFits[[i]] <- fitContinuous(tree, trait, model=models[i])
+}
+
+#Above can also be accomplished by using lapply:
+mFits <- lapply(1:length(models), function(i) fitContinuous(tree, trait, model=models[i]))
+
+```
+
+Model selection can be conducted by comparing AIC values:
+```{r}
+aiccs <- lapply(mFits, function(x) x$opt$aicc)
+names(aiccs) <- models
+aiccs
+```
+
+## VI. Getting a phylogeny from a list of taxa
+
+Most comparative analyses require a time-calibrated phylogeny. The gold standard is to estimate this phylogeny from molecular sequence data, and time-calibrate the resulting phylogeny with fossil calibrations. However, some resources exist for drawing on existing phylogenetic and taxonomic information. One project spearheading the effort to synthesize existing phylogenetic knowledge is the OpenTree of Life (OTL) that has excellent API resources that can be used to obtain synthetic phylogenies, as well as other services such as taxonomic name resolution (this is huge, you will spend a huge amount of time dealing with names). 
+
+```{r}
+library(rotl)
+taxalist <- c("Picoides_borealis", "Carpodacus_mexicana", "Hyla_regilla", "Lithobates_catesbeiana", "Cambarincola", "Cambarus_chasmodactylus", "Pipra_filicauda", "Chrysopelia_paradisi", "Cyanobacteria", "Norops_sagrei", "Carollia_perspicillata", "Piper peltatum", "Taeniopygia_guttata", "Plethodon_hubrichti", "Felus_domestica", "Aedes_aegypti", "Plasmodium_vivax")
+
+```
+
+Let's use OpenTree of Life's powerful taxonomic name resolution services, which draws on NCBI, GBIF, Fishbase, and others to build a comprehensive taxonomy for all life.
+```{r}
+ottTable <- tnrs_match_names(taxalist)
+ottTable
+
+```
+
+Now we can use the Open Tree Taxonomy (OTT) IDs to obtain a synthetic tree of only those taxa.
+```{r}
+synth_tree <- tol_induced_subtree(ottTable$ott_id)
+plot(synth_tree, cex=0.75)
+```
+
+Unfortunately, trees from OpenTree do not have branch lengths. 
+```{r}
+devtools::install_github("phylotastic/datelife")
+library(datelife)
+```
+
+```{r}
+taxa <- gsub(" ", "_", ottTable$unique_name)
+datelife_result <- datelife::datelife_search(taxa)
+datelife_result
+```
