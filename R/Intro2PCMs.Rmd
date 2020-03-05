@@ -147,7 +147,7 @@ phenogram(td2$phy, td2[['lnMass']], spread.labels=FALSE)
 
 We can also calculate the node contrasts (standardized differences) to see where the big changes are on the tree:
 ```{r}
-picMass <- pic(dat$lnMass, tree)
+picMass <- pic(td2[['lnMass']], td2$phy)
 plot(tree, cex=0.5)
 nodelabels(pch=21, bg=topo.colors(100)[round((picMass-min(picMass))/diff(range(picMass))*100,0)])
 ```
@@ -155,9 +155,9 @@ nodelabels(pch=21, bg=topo.colors(100)[round((picMass-min(picMass))/diff(range(p
 Phytools' scattergram can be useful for exploring correlations between traits across the phylogeny:
 ```{r}
 
-fancyDat <- as.matrix(dat[,1:3])
-rownames(fancyDat) <- tree$tip.label
-fancyTree(tree, type="scattergram", X=fancyDat, fsize=0.3)
+fancyDat <- as.matrix(td2$dat[1:3])
+rownames(fancyDat) <- td2$phy$tip.label
+fancyTree(td2$phy, type="scattergram", X=fancyDat, fsize=0.3)
 
 ```
 
@@ -248,6 +248,14 @@ lambda.lm <- phylolm(lnBMR ~ lnMass, data=td2$dat, phy=td2$phy, model="lambda")
 summary(lambda.lm)
 ```
 
+Let's plot the results: 
+
+```{r}
+plot(td2[['lnMass']], td2[['lnBMR']], xlab="lnMass", ylab="lnBMR", pch=21, bg=td2[['desert']]+1)
+abline(ols.lm1, col="red")
+abline(pgls.lm1, col="blue")
+abline(lambda.lm, col="purple")
+```
 
 ## VII. Getting a phylogeny from a list of taxa
 
