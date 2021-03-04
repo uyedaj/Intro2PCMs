@@ -112,7 +112,7 @@ drop.tip(tree, c("Eliomys_quercinus", "Sicista_tianshanica"))
 ### III. Matching a tree with a dataset
 
 ```{r}
-pantheria <- read.table("http://www.esapubs.org/archive/ecol/E090/184/PanTHERIA_1-0_WR05_Aug2008.txt",header=TRUE,sep="\t")
+pantheria <- read.csv("../data/pantheria.csv")
 rownames(pantheria) <- gsub(" ", "_", pantheria$MSW05_Binomial)
 head(pantheria)
 ```
@@ -189,6 +189,21 @@ for(i in 1:9){
 ### Continuous trait models
 For continuous traits, we generally use "Gaussian models" that result in multivariate normal distributions.
 The most basic and familiar of these is Brownian motion. We can fit a Brownian motion model using the function `fitContinuous` from the `geiger` package. 
+
+We can simulate data using Brownian Motion to see what it looks like. It's sometimes called "the Drunkard's walk". It is the process that aligns with Darwinian gradualism: Random changes in the phenotype that accumulate among lineages, resulting in similar species apppearing more similar to each other on average. It is our benchmark for the concept of "phylogenetic signal". 
+```{r}
+simdat <- fastBM(td2$phy, a = 0, sig2=1, internal=TRUE) # `a` is the ancestral state at the root. sig2 is the evolutionary rate.
+phenogram(td2$phy, simdat, ftype='off')
+```
+
+Compare that to a tree where only 25% the variation among species comes from Brownian Motion, and the other 75% comes from random, non-phylogenetic noise. These datasets have a quarter of the original the phylogenetic signal. 
+```{r}
+simdat2 <- fastBM(lambdaTree(td2$phy,0.25), a = 0, sig2=1, internal=TRUE) # `a` is the ancestral state at the root. sig2 is the evolutionary rate.
+phenogram(td2$phy, simdat2, ftype='off')
+```
+
+
+
 ```{r}
 mBM <- fitContinuous(td2$phy, td2[['lnMass']], model="BM")
 mBM
@@ -224,6 +239,7 @@ Which model did best? How do we interpret this?
 When we want to relate two traits to each other, we can make use of "Phylogenetic Generalized Least Squares Regression" or PGLS. This is equivalent to Independent Contrasts with Brownian Motion. The best package for using various types of this approach is `phylolm` written by Lam Ho, Cecile Ane, and others. 
 
 ```{r}
+rownames(td2$dat) <- td2$phy$tip.label
 ols.lm1 <- lm(lnBMR ~ lnMass, data=td2$dat)
 pgls.lm1 <- phylolm(lnBMR ~ lnMass, data=td2$dat, phy=td2$phy, model="BM")
 summary(ols.lm1)
@@ -275,12 +291,13 @@ ottTable
 
 Now we can use the Open Tree Taxonomy (OTT) IDs to obtain a synthetic tree of only those taxa.
 ```{r}
-synth_tree <- get_dated_otol_induced_subtree(ott_ids=ottTable$ott_id)
+#synth_tree <- get_dated_otol_induced_subtree(ott_ids=ottTable$ott_id) #this didn't work today when I ran it because the services are down. This returns a dated phylogeny
+synth_tree <- get_otol_synthetic_tree(ott_ids = ottTable$ott_id) #this one works, but doesn't provide valid dates.
 ```
 
 ```{r}
 plot(synth_tree, cex=0.75)
-axisPhylo()
+axisPhylo() #if you used the second line, you'll see the dates are wrong.
 ```
 
 
