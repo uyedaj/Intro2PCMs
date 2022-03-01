@@ -112,7 +112,7 @@ drop.tip(tree, c("Eliomys_quercinus", "Sicista_tianshanica"))
 ### III. Matching a tree with a dataset
 
 ```{r}
-pantheria <- read.table("http://www.esapubs.org/archive/ecol/E090/184/PanTHERIA_1-0_WR05_Aug2008.txt",header=TRUE,sep="\t")
+pantheria <- read.csv("../data/pantheria.csv")
 rownames(pantheria) <- gsub(" ", "_", pantheria$MSW05_Binomial)
 head(pantheria)
 ```
@@ -147,7 +147,7 @@ phenogram(td2$phy, td2[['lnMass']], spread.labels=FALSE)
 
 We can also calculate the node contrasts (standardized differences) to see where the big changes are on the tree:
 ```{r}
-picMass <- pic(dat$lnMass, tree)
+picMass <- pic(td2[['lnMass']], td2$phy)
 plot(tree, cex=0.5)
 nodelabels(pch=21, bg=topo.colors(100)[round((picMass-min(picMass))/diff(range(picMass))*100,0)])
 ```
@@ -155,9 +155,9 @@ nodelabels(pch=21, bg=topo.colors(100)[round((picMass-min(picMass))/diff(range(p
 Phytools' scattergram can be useful for exploring correlations between traits across the phylogeny:
 ```{r}
 
-fancyDat <- as.matrix(dat[,1:3])
-rownames(fancyDat) <- tree$tip.label
-fancyTree(tree, type="scattergram", X=fancyDat, fsize=0.3)
+fancyDat <- as.matrix(td2$dat[1:3])
+rownames(fancyDat) <- td2$phy$tip.label
+fancyTree(td2$phy, type="scattergram", X=fancyDat, fsize=0.3)
 
 ```
 
@@ -189,6 +189,7 @@ for(i in 1:9){
 ### Continuous trait models
 For continuous traits, we generally use "Gaussian models" that result in multivariate normal distributions.
 The most basic and familiar of these is Brownian motion. We can fit a Brownian motion model using the function `fitContinuous` from the `geiger` package. 
+
 ```{r}
 mBM <- fitContinuous(td2$phy, td2[['lnMass']], model="BM")
 mBM
@@ -219,11 +220,11 @@ aiccs
 
 Which model did best? How do we interpret this? 
 
-
 ## VI. Phylogenetic Regression
 When we want to relate two traits to each other, we can make use of "Phylogenetic Generalized Least Squares Regression" or PGLS. This is equivalent to Independent Contrasts with Brownian Motion. The best package for using various types of this approach is `phylolm` written by Lam Ho, Cecile Ane, and others. 
 
 ```{r}
+rownames(td2$dat) <- td2$phy$tip.label
 ols.lm1 <- lm(lnBMR ~ lnMass, data=td2$dat)
 pgls.lm1 <- phylolm(lnBMR ~ lnMass, data=td2$dat, phy=td2$phy, model="BM")
 summary(ols.lm1)
@@ -248,6 +249,14 @@ lambda.lm <- phylolm(lnBMR ~ lnMass, data=td2$dat, phy=td2$phy, model="lambda")
 summary(lambda.lm)
 ```
 
+Let's plot the results: 
+
+```{r}
+plot(td2[['lnMass']], td2[['lnBMR']], xlab="lnMass", ylab="lnBMR", pch=21, bg=td2[['desert']]+1)
+abline(ols.lm1, col="red")
+abline(pgls.lm1, col="blue")
+abline(lambda.lm, col="purple")
+```
 
 ## VII. Getting a phylogeny from a list of taxa
 
@@ -272,7 +281,6 @@ synth_tree <- rotl::tol_induced_subtree(ott_ids=ottTable$ott_id)
 
 ```{r}
 plot(synth_tree, cex=0.75)
-axisPhylo()
 ```
 
 
