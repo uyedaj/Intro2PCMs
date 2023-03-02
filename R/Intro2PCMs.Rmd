@@ -19,10 +19,9 @@ To install a package directly from CRAN, use:
 ```{r eval=FALSE}
 install.packages("geiger")
 install.packages("phytools")
-install.packages("treeplyr")
+remotes::install_github("uyedaj/treeplyr")
 install.packages("rotl")
 install.packages("phylolm")
-devtools::install_github("phylotastic/datelife")
 ```
 
 Load the package using 'library'.
@@ -31,18 +30,7 @@ library(geiger)
 library(phytools)
 library(treeplyr)
 library(rotl)
-library(datelife)
 library(phylolm)
-```
-
-For phylogenetic comparative methods, there are a number of packages available. One place
-to find them all is the 'Phylogenetics Task View' run by Brian O'meara: (http://cran.r-project.org/web/views/Phylogenetics.html)
-All of these packages can be installed at once using the following lines (however, please note that
-this process can take a considerable amount of time!)
-
-```{r eval=FALSE}
-install.packages("ctv")
-install.views("Phylogenetics")
 ```
 
 ### II. Reading in a tree & tree data structures
@@ -248,7 +236,7 @@ summary(pgls.lm1)
 
 The results aren't that different, in this case! Try a phylogenetic model with an interaction between desert and lnMass. 
 
-```{r}
+```{r eval=FALSE}
 
 ```
 
@@ -292,7 +280,7 @@ ottTable
 Now we can use the Open Tree Taxonomy (OTT) IDs to obtain a synthetic tree of only those taxa.
 ```{r}
 #synth_tree <- get_dated_otol_induced_subtree(ott_ids=ottTable$ott_id) #this didn't work today when I ran it because the services are down. This returns a dated phylogeny
-synth_tree <- get_otol_synthetic_tree(ott_ids = ottTable$ott_id) #this one works, but doesn't provide valid dates.
+synth_tree <- tol_induced_subtree(ott_ids = ottTable$ott_id) #this one works, but doesn't provide valid dates.
 ```
 
 ```{r}
